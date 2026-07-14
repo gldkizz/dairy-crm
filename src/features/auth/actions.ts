@@ -1,0 +1,58 @@
+"use server";
+
+import { AuthError } from "next-auth";
+import { signIn, signOut } from "@/shared/lib/auth";
+
+function isNextRedirect(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "digest" in error &&
+    typeof (error as { digest?: unknown }).digest === "string" &&
+    String((error as { digest: string }).digest).startsWith("NEXT_REDIRECT")
+  );
+}
+
+export async function loginAction(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+
+  if (!email || !password) {
+    return { error: "Введите email и пароль" };
+  }
+
+  try {
+    await signIn("credentials", {
+      email,
+      password,
+      redirectTo: "/",
+    });
+  } catch (error) {
+    if (isNextRedirect(error)) {
+      throw error;
+    }
+
+    if (error instanceof AuthError) {
+      const cause =
+        error.cause instanceof Error ? error.cause.message : String(error.cause ?? "");
+      if (
+        /Can't reach database|ECONNREFUSED|P1001|does not exist|PrismaClient/i.test(
+          cause,
+        )
+      ) {
+        return {
+          error:
+            "Нет связи с БД. Выполните: docker compose up -d db && npm run db:seed",
+        };
+      }
+      return { error: "Неверный email или пароль" };
+    }
+
+    console.error("loginAction unexpected error", error);
+    return { error: "Ошибка входа. Проверьте, что PostgreSQL запущен." };
+  }
+}
+
+export async function logoutAction() {
+  await signOut({ redirectTo: "/login" });
+}

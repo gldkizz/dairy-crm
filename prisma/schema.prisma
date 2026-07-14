@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum BoardType {
+  COLD
+  WARM
+  HOT
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  clients   Client[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model SalesBoard {
+  id        String        @id @default(cuid())
+  type      BoardType     @unique
+  name      String
+  statuses  SalesStatus[]
+  clients   Client[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@map("sales_boards")
+}
+
+model SalesStatus {
+  id        String     @id @default(cuid())
+  boardId   String
+  name      String
+  order     Int
+  color     String     @default("#94a3b8")
+  board     SalesBoard @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  clients   Client[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([boardId, name])
+  @@index([boardId, order])
+  @@map("sales_statuses")
+}
+
+model Client {
+  id            String             @id @default(cuid())
+  companyName   String
+  contactPerson String?
+  phone         String?
+  email         String?
+  city          String?
+  address       String?
+  extraContacts Json?
+  order         Int                @default(0)
+  boardId       String
+  statusId      String
+  managerId     String
+  board         SalesBoard         @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  status        SalesStatus        @relation(fields: [statusId], references: [id], onDelete: Restrict)
+  manager       User               @relation(fields: [managerId], references: [id], onDelete: Restrict)
+  description   ClientDescription?
+  callHistory   CallHistory[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([boardId, statusId, order])
+  @@index([managerId])
+  @@index([companyName])
+  @@index([phone])
+  @@index([city])
+  @@map("clients")
+}
+
+model ClientDescription {
+  id        String   @id @default(cuid())
+  clientId  String   @unique
+  content   String   @default("") @db.Text
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("client_descriptions")
+}
+
+model CallHistory {
+  id        String   @id @default(cuid())
+  clientId  String
+  callDate  DateTime @default(now())
+  content   String   @db.Text
+  result    String?
+  nextStep  String?
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId, callDate])
+  @@map("call_history")
+}
+
+model Factory {
+  id          String           @id @default(cuid())
+  name        String
+  region      String?
+  lpr         String?
+  phone       String?
+  email       String?
+  hasContract Boolean          @default(false)
+  address     String?
+  website     String?
+  rating      Int              @default(0)
+  description String?          @db.Text
+  products    FactoryProduct[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([name])
+  @@index([region])
+  @@map("factories")
+}
+
+model FactoryProduct {
+  id             String    @id @default(cuid())
+  factoryId      String
+  name           String
+  fatContent     String?
+  packaging      String?
+  price          Decimal?  @db.Decimal(12, 2)
+  minBatch       String?
+  priceUpdatedAt DateTime?
+  factory        Factory   @relation(fields: [factoryId], references: [id], onDelete: Cascade)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([factoryId])
+  @@index([name])
+  @@map("factory_products")
+}
