@@ -19,6 +19,8 @@ RUN npx next build
 FROM base AS runner
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+# So prisma.config.ts can resolve `prisma/config` from the global install
+ENV NODE_PATH=/usr/local/lib/node_modules
 WORKDIR /app
 
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
@@ -36,6 +38,9 @@ RUN mkdir .next && chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/dotenv ./node_modules/dotenv
+
+# prisma.config.ts imports `prisma/config` — link global package into app node_modules
+RUN ln -sfn /usr/local/lib/node_modules/prisma ./node_modules/prisma
 
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
