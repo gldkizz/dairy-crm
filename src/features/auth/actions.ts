@@ -33,6 +33,7 @@ export async function loginAction(formData: FormData) {
     }
 
     if (error instanceof AuthError) {
+      console.error("loginAction AuthError", error.type, error.cause);
       const cause =
         error.cause instanceof Error ? error.cause.message : String(error.cause ?? "");
       if (
@@ -45,7 +46,10 @@ export async function loginAction(formData: FormData) {
             "Нет связи с БД. Выполните: docker compose up -d db && npm run db:seed",
         };
       }
-      return { error: "Неверный email или пароль" };
+      if (error.type === "CredentialsSignin") {
+        return { error: "Неверный email или пароль" };
+      }
+      return { error: `Ошибка входа (${error.type}). Проверьте AUTH_URL и cookies.` };
     }
 
     console.error("loginAction unexpected error", error);
