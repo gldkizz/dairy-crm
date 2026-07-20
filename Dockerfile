@@ -42,6 +42,15 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/dotenv ./node_module
 # prisma.config.ts imports `prisma/config` — link global package into app node_modules
 RUN ln -sfn /usr/local/lib/node_modules/prisma ./node_modules/prisma
 
+# Ensure seed/login runtime deps exist in standalone image
+RUN npm install --omit=dev --ignore-scripts --no-save \
+  bcryptjs@3.0.3 \
+  pg@8.22.0 \
+  @prisma/adapter-pg@7.8.0 \
+  @prisma/client@7.8.0 \
+  dotenv@17.4.2 \
+  && chown -R nextjs:nodejs node_modules
+
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
 

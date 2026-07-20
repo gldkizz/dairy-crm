@@ -4,9 +4,12 @@ set -e
 echo "Running Prisma migrations..."
 prisma migrate deploy
 
-echo "Seeding database..."
+echo "Ensuring demo users exist..."
+tsx prisma/ensure-demo-user.ts
+
+echo "Seeding database (boards/clients, best-effort)..."
 if ! tsx prisma/seed.ts; then
-  echo "WARNING: database seed failed — login users may be missing"
+  echo "WARNING: full seed failed — demo users should still work"
 fi
 
 echo "Starting Next.js..."

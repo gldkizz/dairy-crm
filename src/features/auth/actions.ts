@@ -1,6 +1,7 @@
 "use server";
 
 import { AuthError } from "next-auth";
+import { redirect } from "next/navigation";
 import { signIn, signOut } from "@/shared/lib/auth";
 
 function isNextRedirect(error: unknown): boolean {
@@ -22,11 +23,18 @@ export async function loginAction(formData: FormData) {
   }
 
   try {
-    await signIn("credentials", {
+    const result = await signIn("credentials", {
       email,
       password,
-      redirectTo: "/",
+      redirect: false,
     });
+
+    if (result?.error) {
+      console.error("loginAction signIn error", result.error);
+      return { error: "Неверный email или пароль" };
+    }
+
+    redirect("/");
   } catch (error) {
     if (isNextRedirect(error)) {
       throw error;

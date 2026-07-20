@@ -21,7 +21,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         const parsed = credentialsSchema.safeParse(credentials);
-        if (!parsed.success) return null;
+        if (!parsed.success) {
+          console.error("authorize: invalid credentials payload", parsed.error.flatten());
+          return null;
+        }
 
         const email = parsed.data.email.trim().toLowerCase();
 
@@ -29,13 +32,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { email },
         });
 
-        if (!user) return null;
+        if (!user) {
+          console.error("authorize: user not found", email);
+          return null;
+        }
 
         const valid = await bcrypt.compare(
           parsed.data.password,
           user.password,
         );
-        if (!valid) return null;
+        if (!valid) {
+          console.error("authorize: bad password for", email);
+          return null;
+        }
 
         return {
           id: user.id,
