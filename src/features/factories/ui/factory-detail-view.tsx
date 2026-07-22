@@ -244,8 +244,8 @@ export function FactoryDetailView({
           <Button onClick={() => openProductEditor()}>Добавить</Button>
         </CardHeader>
         <CardContent>
-          <div className="overflow-hidden rounded-xl border border-slate-200">
-            <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="w-full min-w-lg text-left text-sm">
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
                   <th className="px-3 py-2 font-medium">Название</th>
@@ -292,7 +292,7 @@ export function FactoryDetailView({
                           {confirmDeleteId === p.id ? (
                             <button
                               type="button"
-                              className="min-h-10 min-w-[88px] rounded-lg bg-red-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+                              className="min-h-10 min-w-22 rounded-lg bg-red-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
                               onClick={() => {
                                 startTransition(async () => {
                                   await deleteFactoryProduct(p.id);

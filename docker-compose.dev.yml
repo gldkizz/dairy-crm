@@ -1,0 +1,33 @@
+# Local development: only Postgres.
+# App runs on the host with hot reload: npm run dev
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d
+#   cp .env.example .env   # APP_URL=http://localhost:3000, DATABASE_URL=@localhost:5432
+#   npm install
+#   npx prisma migrate deploy
+#   npm run db:seed
+#   npm run dev
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: dairy-crm-db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: crm
+      POSTGRES_PASSWORD: crm
+      POSTGRES_DB: dairy_crm
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm -d dairy_crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  postgres_data_dev:

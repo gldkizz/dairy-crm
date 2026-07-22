@@ -4,6 +4,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   closestCorners,
   useSensor,
   useSensors,
@@ -19,7 +20,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useMemo, useOptimistic, useState, useTransition } from "react";
+import { useEffect, useMemo, useOptimistic, useState, useTransition } from "react";
 import { GripVertical, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { moveClient, transferClientByType } from "@/features/clients/actions";
@@ -71,6 +72,20 @@ type KanbanBoardProps = {
 
 type BoardState = KanbanStatus[];
 
+function useIsDesktop(breakpointPx = 768) {
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${breakpointPx}px)`);
+    const sync = () => setIsDesktop(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, [breakpointPx]);
+
+  return isDesktop;
+}
+
 export function KanbanBoard({
   boardId,
   boardType,
@@ -117,7 +132,10 @@ export function KanbanBoard({
   );
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 220, tolerance: 6 },
+    }),
   );
 
   const findContainer = (id: string, board: BoardState) => {
@@ -159,7 +177,9 @@ export function KanbanBoard({
       statusId: to.id,
     });
 
-    setOptimistic(next);
+    startTransition(() => {
+      setOptimistic(next);
+    });
   };
 
   const onDragEnd = (event: DragEndEvent) => {
@@ -174,8 +194,8 @@ export function KanbanBoard({
       if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
 
       const next = arrayMove(optimistic, oldIndex, newIndex);
-      setOptimistic(next);
       startTransition(async () => {
+        setOptimistic(next);
         try {
           await reorderStatuses(
             boardId,
@@ -216,9 +236,9 @@ export function KanbanBoard({
     : null;
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
           <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
             {title}
           </h2>
@@ -243,11 +263,12 @@ export function KanbanBoard({
           items={optimistic.map((s) => s.id)}
           strategy={horizontalListSortingStrategy}
         >
-          <div className="flex h-full gap-4 overflow-x-auto pb-4">
+          <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto pb-4">
             {optimistic.map((status) => (
               <KanbanColumn
                 key={status.id}
                 status={status}
+                boardStatuses={optimistic}
                 boardType={boardType}
                 onCreateClient={onCreateClient}
                 onOpenClient={onOpenClient}
@@ -266,7 +287,7 @@ export function KanbanBoard({
             />
           ) : null}
           {activeType === "column" && activeColumn ? (
-            <div className="w-72 rounded-2xl border border-slate-200 bg-slate-50 p-3 opacity-90 shadow-lg">
+            <div className="w-[min(16rem,85vw)] rounded-2xl border border-slate-200 bg-slate-50 p-3 opacity-90 shadow-lg sm:w-72">
               <p className="font-medium text-slate-800">{activeColumn.name}</p>
             </div>
           ) : null}
@@ -316,11 +337,13 @@ export function KanbanBoard({
 
 function KanbanColumn({
   status,
+  boardStatuses,
   boardType,
   onCreateClient,
   onOpenClient,
 }: {
   status: KanbanStatus;
+  boardStatuses: KanbanStatus[];
   boardType: "COLD" | "WARM" | "HOT";
   onCreateClient: (statusId: string) => void;
   onOpenClient: (clientId: string) => void;
@@ -352,14 +375,16 @@ function KanbanColumn({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex h-full w-72 shrink-0 flex-col rounded-2xl border border-slate-200/80 bg-slate-50/80",
+        "flex h-full min-h-0 w-[min(16rem,85vw)] shrink-0 flex-col rounded-2xl border border-slate-200/80 bg-slate-50/80 sm:w-72",
         isDragging && "opacity-60",
       )}
     >
       <div className="flex items-center gap-2 border-b border-slate-200/60 px-3 py-3">
         <button
           type="button"
-          className="cursor-grab text-slate-400 hover:text-slate-600"
+          className="flex h-8 w-7 shrink-0 touch-none cursor-grab items-center justify-center rounded-md text-slate-300 transition hover:bg-slate-100/80 hover:text-slate-500 active:cursor-grabbing"
+          aria-label="Перетащить колонку статуса"
+          title="Удерживайте и перетащите колонку"
           {...attributes}
           {...listeners}
         >
@@ -425,11 +450,12 @@ function KanbanColumn({
         items={status.clients.map((c) => c.id)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-3">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
           {status.clients.map((client) => (
             <SortableClientCard
               key={client.id}
               client={client}
+              boardStatuses={boardStatuses}
               boardType={boardType}
               onOpenClient={onOpenClient}
             />
@@ -486,13 +512,16 @@ function KanbanColumn({
 
 function SortableClientCard({
   client,
+  boardStatuses,
   boardType,
   onOpenClient,
 }: {
   client: KanbanClient;
+  boardStatuses: KanbanStatus[];
   boardType: "COLD" | "WARM" | "HOT";
   onOpenClient: (clientId: string) => void;
 }) {
+  const isDesktop = useIsDesktop();
   const {
     attributes,
     listeners,
@@ -511,12 +540,21 @@ function SortableClientCard({
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn("relative", isDesktop && "cursor-grab active:cursor-grabbing")}
+      {...(isDesktop ? { ...attributes, ...listeners } : {})}
+    >
       <ClientCard
         client={client}
+        boardStatuses={boardStatuses}
         boardType={boardType}
         dragging={isDragging}
         onOpenClient={onOpenClient}
+        dragHandleProps={
+          isDesktop ? undefined : { ...attributes, ...listeners }
+        }
       />
     </div>
   );
@@ -524,19 +562,23 @@ function SortableClientCard({
 
 function ClientCard({
   client,
+  boardStatuses,
   boardType,
   dragging,
   onOpenClient,
+  dragHandleProps,
 }: {
   client: KanbanClient;
+  boardStatuses?: KanbanStatus[];
   boardType: "COLD" | "WARM" | "HOT";
   dragging?: boolean;
   onOpenClient: (clientId: string) => void;
+  dragHandleProps?: Record<string, unknown>;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [, startTransition] = useTransition();
 
-  const targets = (
+  const boardTargets = (
     [
       { type: "COLD" as const, label: "Холодные" },
       { type: "WARM" as const, label: "Теплые" },
@@ -544,70 +586,129 @@ function ClientCard({
     ] as const
   ).filter((t) => t.type !== boardType);
 
+  const statusTargets = (boardStatuses ?? []).filter(
+    (s) => s.id !== client.statusId,
+  );
+
   return (
     <div
       className={cn(
-        "relative rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md",
+        "group/card relative rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md",
         dragging && "opacity-50 shadow-lg",
       )}
     >
-      <button
-        type="button"
-        className="w-full text-left"
-        onClick={() => {
-          if (!dragging) onOpenClient(client.id);
-        }}
-      >
-        <p className="pr-7 font-medium text-slate-900">{client.companyName}</p>
-        {client.contactPerson ? (
-          <p className="mt-1 text-xs text-slate-500">{client.contactPerson}</p>
+      <div className="flex items-start gap-2">
+        {dragHandleProps ? (
+          <button
+            type="button"
+            className="-ml-1 mt-0.5 flex h-8 w-7 shrink-0 touch-none cursor-grab items-center justify-center rounded-md text-slate-300 opacity-50 transition hover:bg-slate-100/80 hover:text-slate-500 hover:opacity-100 active:cursor-grabbing md:opacity-40 md:group-hover/card:opacity-70"
+            aria-label="Перетащить карточку"
+            title="Удерживайте и перетащите"
+            {...dragHandleProps}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
         ) : null}
-        <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
-          {client.city ? <span>{client.city}</span> : null}
-          {client.phone ? <span>{client.phone}</span> : null}
-        </div>
-        <p className="mt-2 text-[11px] text-slate-400">{client.manager.name}</p>
-      </button>
+
+        <button
+          type="button"
+          className="min-w-0 flex-1 text-left"
+          onClick={() => {
+            if (!dragging) onOpenClient(client.id);
+          }}
+        >
+          <p className="pr-8 font-medium text-slate-900">{client.companyName}</p>
+          {client.contactPerson ? (
+            <p className="mt-1 text-xs text-slate-500">{client.contactPerson}</p>
+          ) : null}
+          <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
+            {client.city ? <span>{client.city}</span> : null}
+            {client.phone ? <span>{client.phone}</span> : null}
+          </div>
+          <p className="mt-2 text-[11px] text-slate-400">{client.manager.name}</p>
+        </button>
+      </div>
 
       <div className="absolute right-1.5 top-1.5">
         <Button
           type="button"
           size="icon"
           variant="ghost"
-          className="h-7 w-7"
+          className="h-8 w-8"
+          aria-label="Меню карточки"
           onClick={(e) => {
             e.stopPropagation();
             setMenuOpen((v) => !v);
           }}
         >
-          <MoreHorizontal className="h-3.5 w-3.5" />
+          <MoreHorizontal className="h-4 w-4" />
         </Button>
         {menuOpen ? (
-          <div className="absolute right-0 z-30 mt-1 w-44 rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-            <p className="px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-              Перенести в
-            </p>
-            {targets.map((t) => (
-              <button
-                key={t.type}
-                type="button"
-                className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  startTransition(async () => {
-                    try {
-                      await transferClientByType(client.id, t.type);
-                      toast.success(`Перенесён в «${t.label}»`);
-                    } catch {
-                      toast.error("Не удалось перенести");
-                    }
-                  });
-                }}
-              >
-                → {t.label}
-              </button>
-            ))}
+          <div className="absolute right-0 z-30 mt-1 max-h-72 w-52 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+            {statusTargets.length > 0 ? (
+              <>
+                <p className="px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                  Сменить статус
+                </p>
+                {statusTargets.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-slate-50"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuOpen(false);
+                      startTransition(async () => {
+                        try {
+                          await moveClient({
+                            clientId: client.id,
+                            statusId: s.id,
+                            order: 0,
+                          });
+                          toast.success(`Статус: «${s.name}»`);
+                        } catch {
+                          toast.error("Не удалось сменить статус");
+                        }
+                      });
+                    }}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: s.color }}
+                    />
+                    {s.name}
+                  </button>
+                ))}
+              </>
+            ) : null}
+            {boardTargets.length > 0 ? (
+              <>
+                <p className="px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                  Перенести на доску
+                </p>
+                {boardTargets.map((t) => (
+                  <button
+                    key={t.type}
+                    type="button"
+                    className="w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-slate-50"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuOpen(false);
+                      startTransition(async () => {
+                        try {
+                          await transferClientByType(client.id, t.type);
+                          toast.success(`Перенесён в «${t.label}»`);
+                        } catch {
+                          toast.error("Не удалось перенести");
+                        }
+                      });
+                    }}
+                  >
+                    → {t.label}
+                  </button>
+                ))}
+              </>
+            ) : null}
           </div>
         ) : null}
       </div>

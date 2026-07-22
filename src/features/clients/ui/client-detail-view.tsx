@@ -317,7 +317,7 @@ export function ClientDetailView({
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <div className="mb-3" ref={statusMenuRef}>
+          <div className="relative mb-3 inline-block max-w-full" ref={statusMenuRef}>
             <button
               type="button"
               onClick={() => setStatusMenuOpen((v) => !v)}
@@ -333,11 +333,16 @@ export function ClientDetailView({
                 style={{ backgroundColor: accent }}
               />
               <span className="truncate">{activeBoard.name}</span>
-              <ChevronDown className="h-5 w-5 shrink-0 opacity-60" />
+              <ChevronDown
+                className={cn(
+                  "h-5 w-5 shrink-0 opacity-60 transition-transform",
+                  statusMenuOpen && "rotate-180",
+                )}
+              />
             </button>
 
             {statusMenuOpen ? (
-              <div className="relative z-30 mt-2 w-full max-w-sm overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+              <div className="absolute left-0 top-full z-40 mt-1.5 w-[min(100vw-2rem,20rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl">
                 {boardOptions.map((board) => {
                   const selected = board.id === form.boardId;
                   const color = boardAccent[board.type] ?? "#64748b";
@@ -346,7 +351,7 @@ export function ClientDetailView({
                       key={board.id}
                       type="button"
                       className={cn(
-                        "flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left text-base font-semibold transition",
+                        "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-base font-semibold transition",
                         selected
                           ? "bg-slate-900 text-white"
                           : "text-slate-800 hover:bg-slate-50",

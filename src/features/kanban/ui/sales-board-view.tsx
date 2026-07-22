@@ -52,9 +52,9 @@ export function SalesBoardView({
   );
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex h-[calc(100dvh-5.75rem)] flex-col gap-4 md:h-[calc(100dvh-4rem)]">
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
-        <div className="relative min-w-[220px] flex-1">
+        <div className="relative min-w-0 w-full flex-1 sm:min-w-55">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
             className="pl-9"
@@ -64,7 +64,7 @@ export function SalesBoardView({
           />
         </div>
         <Select
-          className="w-[180px]"
+          className="w-full sm:w-45"
           value={statusId}
           onChange={(e) => setStatusId(e.target.value)}
         >
@@ -76,7 +76,7 @@ export function SalesBoardView({
           ))}
         </Select>
         <Select
-          className="w-[180px]"
+          className="w-full sm:w-45"
           value={managerId}
           onChange={(e) => setManagerId(e.target.value)}
         >
@@ -88,7 +88,7 @@ export function SalesBoardView({
           ))}
         </Select>
         <Select
-          className="w-[180px]"
+          className="w-full sm:w-45"
           value={city}
           onChange={(e) => setCity(e.target.value)}
         >

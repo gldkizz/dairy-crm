@@ -20,6 +20,10 @@
   box-sizing: border-box;
 }
 
+html {
+  font-size: clamp(14px, 0.35vw + 13px, 16px);
+}
+
 html,
 body {
   height: 100%;
